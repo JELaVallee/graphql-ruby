@@ -148,14 +148,35 @@ type Query {
       GRAPHQL
       }
 
-      let(:schema) { GraphQL::Schema.from_definition(schema_idl) }
+      class RepeatableDirectiveSchema < GraphQL::Schema
+        class RepeatableDirective < GraphQL::Schema::Directive
+          locations GraphQL::Schema::Directive::ENUM_VALUE
+          repeatable true
+          argument :fake_argument, String, required: true
+        end
 
-      it "can parse the definition successfully" do
-        assert_equal schema_idl, schema.to_definition
+        class FakeEnum < GraphQL::Schema::Enum
+          value "VALUE1"
+          value "VALUE2", directives: [
+            [ RepeatableDirective, { fake_argument: "Cats love dogs..." } ],
+            [ RepeatableDirective, { fake_argument: "Dogs love cats..." } ]
+          ]
+        end
+
+        class Query < GraphQL::Schema::Object
+          field :fake_query_field, FakeEnum, null: false
+        end
+
+        query(Query)
+        directive(RepeatableDirective)
+      end
+
+      it "can parse the definition with both directive annotations intact" do
+        assert_equal schema_idl, RepeatableDirectiveSchema.to_definition
       end
     end
 
-    describe "when printing and schema respects root name conventions" do
+      describe "when printing and schema respects root name conventions" do
       let(:schema_idl) { <<-GRAPHQL
         type Query {
           foo: Foo
